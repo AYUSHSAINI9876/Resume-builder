@@ -29,13 +29,11 @@ ResumeAI goes beyond standard templates by seamlessly integrating Artificial Int
 
 ## 📸 Screenshots
 
-*(Currently displaying placeholders! To show your actual app screenshots here: create an `assets` folder in your GitHub repo, upload your screenshots there, and change these URLs to `assets/your-image.png`!)*
-
 | Landing Page | Live Builder |
 | :---: | :---: |
-| <img src="https://placehold.co/600x400/1e1e2f/6c63ff?text=Landing+Page+Screenshot" width="400" alt="Landing Page"/> | <img src="https://placehold.co/600x400/1e1e2f/6c63ff?text=Resume+Builder+Screenshot" width="400" alt="Resume Builder"/> |
+| <img src="assets/landing.png" width="400" alt="Landing Page"/> | <img src="assets/builder.png" width="400" alt="Resume Builder"/> |
 | **Template Gallery** | **Features & Tech** |
-| <img src="https://placehold.co/600x400/1e1e2f/6c63ff?text=Templates+Screenshot" width="400" alt="Templates"/> | <img src="https://placehold.co/600x400/1e1e2f/6c63ff?text=Features+Screenshot" width="400" alt="Features"/> |
+| <img src="assets/templates.png" width="400" alt="Templates"/> | <img src="assets/features.png" width="400" alt="Features"/> |
 
 ---
 
