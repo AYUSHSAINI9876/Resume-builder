@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API_URL = "http://localhost:5000/api/resumes/";
+const API_URL = process.env.NODE_ENV === "production" ? "/api/resumes/" : "http://localhost:5000/api/resumes/";
 
 // Get all resumes
 export const getAllResumes = async () => {
