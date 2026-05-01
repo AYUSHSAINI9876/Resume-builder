@@ -8,6 +8,9 @@ import {
   getSkillSuggestions,
   generateAISummary,
   enhanceExperience,
+  parseUploadedResume,
+  reviewAndImproveResume,
+  parseVoiceText
 } from "../services/aiService";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -244,7 +247,181 @@ const ResumeBuilderPage = () => {
   const [atsResult, setAtsResult]       = useState({ score: 0, level: "low", tips: [] });
   const [aiSuggestion, setAiSuggestion] = useState("");
   const [status, setStatus]             = useState({ type: "", msg: "" });
-  const [loading, setLoading]           = useState({ summary: false, skills: false, experience: false, save: false });
+  const [loading, setLoading]           = useState({ summary: false, skills: false, experience: false, save: false, upload: false, review: false });
+  const [aiReviewResult, setAiReviewResult] = useState(null);
+  const fileInputRef = React.useRef(null);
+
+  const [listeningField, setListeningField] = useState(null);
+  const recognitionRef = React.useRef(null);
+  const isListeningRef = React.useRef(false);
+  const finalTranscriptRef = React.useRef("");
+  const interimTranscriptRef = React.useRef("");
+
+  // Initialize SpeechRecognition
+  useEffect(() => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      const recognition = new SpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = "en-US";
+
+      recognition.onresult = (event) => {
+        let final = "";
+        let interim = "";
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          if (event.results[i].isFinal) {
+            final += event.results[i][0].transcript + " ";
+          } else {
+            interim += event.results[i][0].transcript;
+          }
+        }
+        finalTranscriptRef.current += final;
+        interimTranscriptRef.current = interim;
+      };
+
+      recognition.onend = () => {
+        if (isListeningRef.current) {
+          try { recognition.start(); } catch(e){}
+        }
+      };
+
+      recognitionRef.current = recognition;
+    }
+  }, []);
+
+  const toggleVoiceField = async (field = "global") => {
+    if (!recognitionRef.current) {
+      showStatus("error", "Voice recognition not supported in this browser. Please try Chrome or Edge.");
+      return;
+    }
+
+    if (listeningField === field) {
+      // STOP LISTENING AND PROCESS
+      isListeningRef.current = false;
+      setListeningField(null);
+      try { recognitionRef.current.stop(); } catch(e) {}
+      
+      const text = (finalTranscriptRef.current + " " + interimTranscriptRef.current).trim();
+      finalTranscriptRef.current = "";
+      interimTranscriptRef.current = "";
+      
+      if (text) {
+        showStatus("success", "⏳ AI is processing your voice input...");
+        setLoading((p) => ({ ...p, upload: true }));
+        try {
+          if (field === "global") {
+            const parsedData = await parseVoiceText(text);
+            setFormData((prev) => ({
+              ...prev,
+              name: parsedData.name || prev.name,
+              email: parsedData.email || prev.email,
+              phone: parsedData.phone || prev.phone,
+              location: parsedData.location || prev.location,
+              linkedin: parsedData.linkedin || prev.linkedin,
+              role: parsedData.role || prev.role,
+              summary: parsedData.summary || prev.summary,
+              experience: parsedData.experience ? (prev.experience ? prev.experience + "\n\n" + parsedData.experience : parsedData.experience) : prev.experience,
+              education: parsedData.education ? (prev.education ? prev.education + "\n\n" + parsedData.education : parsedData.education) : prev.education,
+              projects: parsedData.projects ? (prev.projects ? prev.projects + "\n\n" + parsedData.projects : parsedData.projects) : prev.projects,
+              certifications: parsedData.certifications ? (prev.certifications ? prev.certifications + "\n\n" + parsedData.certifications : parsedData.certifications) : prev.certifications,
+              skillsList: parsedData.skillsList?.length ? [...new Set([...prev.skillsList, ...parsedData.skillsList])] : prev.skillsList,
+            }));
+            setAiSuggestion("✨ Successfully processed your full voice input into resume sections!");
+          } else {
+            const basicFields = ["name", "role", "email", "phone", "location", "linkedin"];
+            if (basicFields.includes(field)) {
+              let processedText = text;
+
+              // Datatype parsing and validation
+              if (field === "phone") {
+                let numbersOnly = processedText.replace(/[^0-9+]/g, "");
+                if (!/\d/.test(numbersOnly)) {
+                  throw new Error(`Datatype mismatch (Phone): Expected numbers but received "${text}".`);
+                }
+                processedText = numbersOnly;
+              } else if (field === "email") {
+                let emailText = processedText.toLowerCase().replace(/\s+at\s+/g, "@").replace(/\s+dot\s+/g, ".").replace(/\s+/g, "");
+                if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailText)) {
+                  throw new Error(`Datatype mismatch (Email): Unrecognizable email format from "${text}".`);
+                }
+                processedText = emailText;
+              } else if (field === "linkedin") {
+                let urlText = processedText.toLowerCase().replace(/\s+dot\s+/g, ".").replace(/\s+/g, "");
+                if (!urlText.includes("linkedin") && !urlText.includes(".com")) {
+                  throw new Error(`Datatype mismatch (URL): Expected a valid LinkedIn link but got "${text}".`);
+                }
+                processedText = urlText;
+              } else {
+                // Formatting cleanup for name, role, etc (strip trailing spaces/punctuation)
+                processedText = processedText.replace(/[.,;:]+$/, "").trim();
+              }
+
+              // Bypass AI format for simple text fields
+              setFormData(prev => ({
+                ...prev,
+                [field]: processedText
+              }));
+              setAiSuggestion(`✨ Successfully added dictated input to ${field}!`);
+            } else {
+              // AI format for textareas
+              const parsedData = await parseVoiceText(text, field);
+              const formattedText = parsedData.formattedText;
+              setFormData(prev => ({
+                ...prev,
+                [field]: prev[field] ? prev[field] + "\n\n" + formattedText : formattedText
+              }));
+              setAiSuggestion(`✨ Successfully formatted and added your dictated input to ${field}!`);
+            }
+          }
+          showStatus("success", "✅ Voice input processed successfully!");
+        } catch (err) {
+          showStatus("error", err.message || "Failed to process voice text. Backend error.");
+        } finally {
+          setLoading((p) => ({ ...p, upload: false }));
+        }
+      } else {
+         showStatus("error", "No speech detected. Please try again.");
+      }
+      finalTranscriptRef.current = "";
+    } else {
+      // START LISTENING
+      if (listeningField) {
+         try { recognitionRef.current.stop(); } catch(e) {}
+      }
+      isListeningRef.current = true;
+      setListeningField(field);
+      finalTranscriptRef.current = "";
+      interimTranscriptRef.current = "";
+      try { recognitionRef.current.start(); } catch(e){}
+      showStatus("success", `🎙️ Listening... Dictate for ${field === "global" ? "your entire resume" : field}.`);
+    }
+  };
+
+  const renderVoiceBtn = (field) => (
+    <button
+      type="button"
+      className={`voice-mic-btn ${listeningField === field ? "pulsing-mic" : ""}`}
+      onClick={() => toggleVoiceField(field)}
+      title={`Dictate ${field}`}
+      style={{
+        background: listeningField === field ? "rgba(255,69,138,0.15)" : "transparent",
+        border: `1px solid ${listeningField === field ? "#ff458a" : "var(--border)"}`,
+        color: listeningField === field ? "#ff458a" : "var(--text-muted)",
+        borderRadius: "4px",
+        padding: "2px 6px",
+        fontSize: "0.7rem",
+        cursor: "pointer",
+        marginLeft: "8px",
+        display: "inline-flex",
+        alignItems: "center",
+        gap: "4px",
+        transition: "all 0.3s ease"
+      }}
+    >
+      {listeningField === field ? "🛑 Stop" : "🎙️ Dictate"}
+    </button>
+  );
 
   // ── ATS recalculation whenever formData changes ────────────────────────────
   useEffect(() => {
@@ -340,6 +517,69 @@ const ResumeBuilderPage = () => {
     } finally {
       setLoading((p) => ({ ...p, skills: false }));
     }
+  };
+
+  const handleFileUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.type !== "application/pdf") {
+      showStatus("error", "Please upload a PDF file.");
+      return;
+    }
+    
+    setLoading((p) => ({ ...p, upload: true }));
+    showStatus("success", "⏳ AI is reading and extracting your PDF...");
+    try {
+      const parsedData = await parseUploadedResume(file);
+      setFormData((prev) => ({
+        ...prev,
+        name: parsedData.name || prev.name,
+        email: parsedData.email || prev.email,
+        phone: parsedData.phone || prev.phone,
+        location: parsedData.location || prev.location,
+        linkedin: parsedData.linkedin || prev.linkedin,
+        role: parsedData.role || prev.role,
+        summary: parsedData.summary || prev.summary,
+        experience: parsedData.experience || prev.experience,
+        education: parsedData.education || prev.education,
+        projects: parsedData.projects || prev.projects,
+        certifications: parsedData.certifications || prev.certifications,
+        skillsList: parsedData.skillsList?.length ? parsedData.skillsList : prev.skillsList,
+      }));
+      setAiSuggestion("✨ Successfully loaded content from uploaded PDF into the builder!");
+      showStatus("success", "✅ PDF loaded successfully!");
+    } catch {
+      showStatus("error", "Failed to parse the PDF. Check if backend is running.");
+    } finally {
+      setLoading((p) => ({ ...p, upload: false }));
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const handleDeepReview = async () => {
+    setLoading((p) => ({ ...p, review: true }));
+    showStatus("success", "⏳ AI is deeply analyzing your resume for flaws...");
+    try {
+      const res = await reviewAndImproveResume(formData);
+      setAiReviewResult(res);
+      showStatus("success", "✨ Full AI review complete!");
+    } catch {
+      showStatus("error", "AI deep review failed.");
+    } finally {
+      setLoading((p) => ({ ...p, review: false }));
+    }
+  };
+
+  const applyDeepReviewFixes = () => {
+    if (!aiReviewResult) return;
+    setFormData((prev) => ({
+      ...prev,
+      summary: aiReviewResult.improvedSummary,
+      experience: aiReviewResult.improvedExperience
+    }));
+    setAiSuggestion("✨ Advanced AI improvements applied to Summary and Experience!");
+    setAiReviewResult(null);
+    showStatus("success", "✅ Missing features fixed!");
   };
 
   // ── Save to backend ────────────────────────────────────────────────────────
@@ -485,6 +725,36 @@ const ResumeBuilderPage = () => {
               </button>
             ))}
           </div>
+          <button 
+            className={`btn-secondary ${listeningField === "global" ? "pulsing-global-mic" : ""}`} 
+            style={{ 
+              fontSize: "0.85rem", 
+              padding: "9px 16px", 
+              color: listeningField === "global" ? "#ff458a" : "inherit",
+              borderColor: listeningField === "global" ? "#ff458a" : "var(--border)",
+              background: listeningField === "global" ? "rgba(255, 69, 138, 0.1)" : "transparent",
+              transition: "all 0.3s ease"
+            }}
+            onClick={() => toggleVoiceField("global")}
+            disabled={loading.upload && listeningField !== "global"}
+          >
+            {listeningField === "global" ? "🛑 Stop Global AI" : "🎙️ Global Voice AI"}
+          </button>
+          <input 
+            type="file" 
+            accept="application/pdf" 
+            style={{ display: "none" }} 
+            ref={fileInputRef} 
+            onChange={handleFileUpload} 
+          />
+          <button 
+            className="btn-secondary" 
+            style={{ fontSize: "0.85rem", padding: "9px 16px" }}
+            onClick={() => fileInputRef.current?.click()}
+            disabled={loading.upload}
+          >
+            {loading.upload ? "📂 Parsing..." : "📂 Upload Resume"}
+          </button>
           <Link to="/templates" className="btn-secondary" style={{ fontSize: "0.85rem", padding: "9px 16px" }}>
             ← Templates
           </Link>
@@ -531,36 +801,36 @@ const ResumeBuilderPage = () => {
               <div className={`form-section ${activeTab === "basics" ? "active" : ""}`}>
                 <div className="form-row">
                   <div className="form-group">
-                    <label className="form-label" htmlFor="name">Full Name *</label>
+                    <label className="form-label" htmlFor="name">Full Name * {renderVoiceBtn("name")}</label>
                     <input id="name" name="name" type="text" className="form-input"
                       placeholder="Ayush Saini" value={formData.name} onChange={handleChange} />
                   </div>
                   <div className="form-group">
-                    <label className="form-label" htmlFor="role">Job Title</label>
+                    <label className="form-label" htmlFor="role">Job Title {renderVoiceBtn("role")}</label>
                     <input id="role" name="role" type="text" className="form-input"
                       placeholder="Software Engineer" value={formData.role} onChange={handleChange} />
                   </div>
                 </div>
                 <div className="form-row">
                   <div className="form-group">
-                    <label className="form-label" htmlFor="email">Email *</label>
+                    <label className="form-label" htmlFor="email">Email * {renderVoiceBtn("email")}</label>
                     <input id="email" name="email" type="email" className="form-input"
                       placeholder="ayush@example.com" value={formData.email} onChange={handleChange} />
                   </div>
                   <div className="form-group">
-                    <label className="form-label" htmlFor="phone">Phone *</label>
+                    <label className="form-label" htmlFor="phone">Phone * {renderVoiceBtn("phone")}</label>
                     <input id="phone" name="phone" type="tel" className="form-input"
                       placeholder="+91 98765 43210" value={formData.phone} onChange={handleChange} />
                   </div>
                 </div>
                 <div className="form-row">
                   <div className="form-group">
-                    <label className="form-label" htmlFor="location">Location</label>
+                    <label className="form-label" htmlFor="location">Location {renderVoiceBtn("location")}</label>
                     <input id="location" name="location" type="text" className="form-input"
                       placeholder="Bengaluru, India" value={formData.location} onChange={handleChange} />
                   </div>
                   <div className="form-group">
-                    <label className="form-label" htmlFor="linkedin">LinkedIn / Portfolio</label>
+                    <label className="form-label" htmlFor="linkedin">LinkedIn / Portfolio {renderVoiceBtn("linkedin")}</label>
                     <input id="linkedin" name="linkedin" type="url" className="form-input"
                       placeholder="linkedin.com/in/ayush" value={formData.linkedin} onChange={handleChange} />
                   </div>
@@ -570,8 +840,8 @@ const ResumeBuilderPage = () => {
               {/* ── SUMMARY TAB ── */}
               <div className={`form-section ${activeTab === "summary" ? "active" : ""}`}>
                 <div className="form-group">
-                  <label className="form-label" htmlFor="summary">
-                    Professional Summary
+                  <label className="form-label" htmlFor="summary" style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: "8px" }}>
+                    Professional Summary {renderVoiceBtn("summary")}
                     <button
                       className={`ai-suggest-btn ${loading.summary ? "loading" : ""}`}
                       onClick={handleGenerateSummary}
@@ -598,8 +868,8 @@ const ResumeBuilderPage = () => {
               {/* ── EXPERIENCE TAB ── */}
               <div className={`form-section ${activeTab === "exp" ? "active" : ""}`}>
                 <div className="form-group">
-                  <label className="form-label" htmlFor="experience">
-                    Work Experience
+                  <label className="form-label" htmlFor="experience" style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: "8px" }}>
+                    Work Experience {renderVoiceBtn("experience")}
                     <button
                       className={`ai-suggest-btn ${loading.experience ? "loading" : ""}`}
                       onClick={handleEnhanceExperience}
@@ -625,7 +895,7 @@ const ResumeBuilderPage = () => {
               {/* ── EDUCATION TAB ── */}
               <div className={`form-section ${activeTab === "edu" ? "active" : ""}`}>
                 <div className="form-group">
-                  <label className="form-label" htmlFor="education">Education</label>
+                  <label className="form-label" htmlFor="education">Education {renderVoiceBtn("education")}</label>
                   <textarea id="education" name="education" className="form-textarea"
                     style={{ minHeight: 120 }}
                     placeholder={`B.Tech Computer Science\nIIT Delhi (2018–2022)\nCGPA: 8.5/10`}
@@ -699,7 +969,7 @@ const ResumeBuilderPage = () => {
               {/* ── EXTRA TAB ── */}
               <div className={`form-section ${activeTab === "extra" ? "active" : ""}`}>
                 <div className="form-group">
-                  <label className="form-label" htmlFor="projects">Projects</label>
+                  <label className="form-label" htmlFor="projects">Projects {renderVoiceBtn("projects")}</label>
                   <textarea id="projects" name="projects" className="form-textarea"
                     style={{ minHeight: 110 }}
                     placeholder={`Resume Builder AI — React, Node.js, MongoDB\n• Built an AI-powered resume builder using Gemini API…`}
@@ -707,7 +977,7 @@ const ResumeBuilderPage = () => {
                   />
                 </div>
                 <div className="form-group">
-                  <label className="form-label" htmlFor="certifications">Certifications & Awards</label>
+                  <label className="form-label" htmlFor="certifications">Certifications & Awards {renderVoiceBtn("certifications")}</label>
                   <textarea id="certifications" name="certifications" className="form-textarea"
                     style={{ minHeight: 80 }}
                     placeholder={`AWS Certified Solutions Architect — 2023\nGoogle Cloud Professional — 2022`}
@@ -748,6 +1018,36 @@ const ResumeBuilderPage = () => {
                 ))}
               </div>
             </div>
+
+            {aiReviewResult && (
+              <div className="ai-panel" style={{ marginTop: 15, background: "rgba(255, 69, 138, 0.1)", border: "1px solid rgba(255, 69, 138, 0.3)" }}>
+                <div className="ai-panel-title" style={{ color: "#ff458a" }}>🔥 AI Deep Review Report (Score: {aiReviewResult.atsScore})</div>
+                <div style={{ marginBottom: 10, fontSize: "0.85rem", color: "var(--text-color)" }}>
+                  <strong>Missing Features / Flaws:</strong>
+                  <ul style={{ paddingLeft: 20, marginTop: 5, lineHeight: 1.6 }}>
+                    {aiReviewResult.flaws.map((flaw, idx) => (
+                      <li key={idx}>{flaw}</li>
+                    ))}
+                  </ul>
+                </div>
+                <button 
+                  className="ai-suggest-btn" 
+                  style={{ width: "100%", justifyContent: "center", background: "linear-gradient(135deg, #ff458a, #6c63ff)", color: "#fff", padding: "10px", fontWeight: "bold" }}
+                  onClick={applyDeepReviewFixes}
+                >
+                  ⚡ Auto-Improve & Fix All Flaws Now
+                </button>
+              </div>
+            )}
+
+            <button 
+              className={`btn-secondary ${loading.review ? "loading" : ""}`} 
+              style={{ width: "100%", marginTop: 15, padding: "12px", background: "rgba(108, 99, 255, 0.1)", color: "var(--primary-light)", border: "1px dashed var(--primary-light)" }}
+              onClick={handleDeepReview}
+              disabled={loading.review}
+            >
+               {loading.review ? "🔍 Analyzing flaws..." : "🔍 Run AI Deep Review"}
+            </button>
 
             {/* ── Form Actions ── */}
             <div className="form-actions">
