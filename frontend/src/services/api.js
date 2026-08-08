@@ -3,7 +3,18 @@
 // and gives us one place to attach auth tokens / handle 401s globally.
 import axios from "axios";
 
-const BASE_URL = process.env.NODE_ENV === "production" ? "/api" : "http://localhost:5000/api";
+// Where the API lives:
+//  - REACT_APP_API_URL wins when set (backend hosted separately, e.g. Render).
+//    Set it to the backend origin, with or without a trailing "/api".
+//  - Otherwise use a same-origin relative path in production (single Vercel
+//    project serving both frontend and serverless backend), and localhost in dev.
+const resolveBaseUrl = () => {
+  const configured = process.env.REACT_APP_API_URL?.trim().replace(/\/+$/, "");
+  if (configured) return configured.endsWith("/api") ? configured : `${configured}/api`;
+  return process.env.NODE_ENV === "production" ? "/api" : "http://localhost:5000/api";
+};
+
+const BASE_URL = resolveBaseUrl();
 const TOKEN_KEY = "resumeai_token";
 const USER_KEY = "resumeai_user";
 
