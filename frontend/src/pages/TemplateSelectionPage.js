@@ -1,6 +1,7 @@
 // TemplateSelectionPage.js — Premium template gallery
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { IconBuilding, IconCheck, IconLightbulb, IconMoon, IconPalette } from "../components/Icons";
 
 /**
  * Template definitions with metadata
@@ -12,7 +13,7 @@ const templates = [
     desc: "Timeless two-tone layout trusted by Fortune 500 recruiters.",
     tags: [{ label: "ATS-Friendly", cls: "tag-green" }, { label: "Corporate", cls: "tag-purple" }],
     gradient: "linear-gradient(135deg, #1e1e3f 0%, #6c63ff 100%)",
-    icon: "🏛️",
+    Icon: IconBuilding,
     bestFor: "Finance, Law, Consulting",
     delay: "0.1s",
   },
@@ -22,7 +23,7 @@ const templates = [
     desc: "Sleek two-column dark design that screams tech-savvy innovator.",
     tags: [{ label: "Tech", cls: "tag-blue" }, { label: "Creative", cls: "tag-purple" }],
     gradient: "linear-gradient(135deg, #1a0a2e 0%, #16213e 100%)",
-    icon: "🌙",
+    Icon: IconMoon,
     bestFor: "Engineering, Design, Startups",
     delay: "0.2s",
   },
@@ -32,7 +33,7 @@ const templates = [
     desc: "Bold color-accented design that makes your resume unforgettable.",
     tags: [{ label: "Bold", cls: "tag-pink" }, { label: "Unique", cls: "tag-blue" }],
     gradient: "linear-gradient(135deg, #f72585 0%, #4cc9f0 100%)",
-    icon: "🎨",
+    Icon: IconPalette,
     bestFor: "Marketing, Design, Media",
     delay: "0.3s",
   },
@@ -155,7 +156,9 @@ const TemplateSelectionPage = () => {
             {/* Card body */}
             <div className="template-card-body">
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                <span style={{ fontSize: "1.1rem" }}>{t.icon}</span>
+                <span style={{ color: "var(--primary-light)", display: "inline-flex" }}>
+                  <t.Icon size={18} />
+                </span>
                 <span className="template-card-name">{t.name}</span>
               </div>
               <p className="template-card-desc">{t.desc}</p>
@@ -178,7 +181,7 @@ const TemplateSelectionPage = () => {
                 alignItems: "center",
                 gap: 6,
               }}>
-                <span>✓</span> Best for: {t.bestFor}
+                <IconCheck size={14} /> Best for: {t.bestFor}
               </div>
 
               {/* Action button */}
@@ -202,8 +205,12 @@ const TemplateSelectionPage = () => {
         marginTop: "2.5rem",
         fontSize: "0.85rem",
         color: "var(--text-muted)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 7,
       }}>
-        💡 You can switch templates anytime in the builder without losing your data
+        <IconLightbulb size={15} /> You can switch templates anytime in the builder without losing your data
       </p>
     </div>
   );

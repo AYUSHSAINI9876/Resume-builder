@@ -13,8 +13,8 @@
   padding: 0 2rem;
   height: 64px;
   background: rgba(10, 10, 15, 0.85);
-  backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
   border-bottom: 1px solid var(--border);
   animation: fadeInUp 0.5s ease;
 }
@@ -1428,7 +1428,671 @@
 }
 
 /* ============================================
+   NAVBAR — AUTH STATE + MOBILE MENU
+   ============================================ */
+.navbar-mobile-toggle {
+  display: none;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  border-radius: var(--radius-sm);
+  width: 38px;
+  height: 38px;
+  font-size: 1.1rem;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+}
+
+.navbar-links-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.navbar-auth-buttons {
+  display: flex;
+  gap: 0.6rem;
+}
+
+.navbar-auth-buttons .btn-primary,
+.navbar-auth-buttons .btn-secondary {
+  padding: 8px 18px;
+  font-size: 0.85rem;
+}
+
+.navbar-user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.navbar-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--gradient-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: white;
+  flex-shrink: 0;
+}
+
+.navbar-user-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.navbar-logout-btn {
+  padding: 7px 14px !important;
+  font-size: 0.78rem !important;
+}
+
+/* ============================================
+   TOASTS
+   ============================================ */
+.toast-stack {
+  position: fixed;
+  bottom: 1.25rem;
+  right: 1.25rem;
+  z-index: 3000;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 0.6rem;
+  max-width: min(380px, calc(100vw - 2.5rem));
+}
+
+.toast-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  box-shadow: var(--shadow-md);
+  animation: slideInRight 0.3s ease;
+}
+
+.toast-message { flex: 1; line-height: 1.4; }
+
+.toast-close {
+  background: transparent;
+  border: none;
+  color: inherit;
+  opacity: 0.6;
+  cursor: pointer;
+  font-size: 1.1rem;
+  line-height: 1;
+  padding: 0;
+}
+
+.toast-close:hover { opacity: 1; }
+
+/* ============================================
+   MODAL / CONFIRM DIALOG
+   ============================================ */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(5, 5, 10, 0.65);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 4000;
+  padding: 1.5rem;
+  animation: fadeIn 0.2s ease;
+}
+
+.modal-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1.75rem;
+  max-width: 420px;
+  width: 100%;
+  box-shadow: var(--shadow-lg);
+  animation: fadeInUp 0.25s ease;
+}
+
+.modal-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  margin-bottom: 0.6rem;
+  color: var(--text-primary);
+}
+
+.modal-message {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin-bottom: 1.5rem;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
+
+.modal-actions .btn-secondary,
+.modal-actions .btn-primary,
+.modal-actions .btn-danger {
+  padding: 10px 20px;
+  font-size: 0.85rem;
+}
+
+/* ============================================
+   BUTTONS — DANGER VARIANT
+   ============================================ */
+.btn-danger {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 32px;
+  border-radius: var(--radius-md);
+  background: rgba(247, 37, 133, 0.12);
+  color: #ff6b9d;
+  font-size: 0.95rem;
+  font-weight: 600;
+  border: 1px solid rgba(247, 37, 133, 0.4);
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.btn-danger:hover {
+  background: rgba(247, 37, 133, 0.22);
+  transform: translateY(-1px);
+}
+
+.btn-danger:disabled,
+.btn-secondary:disabled,
+.btn-primary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+/* ============================================
+   AUTH PAGES (LOGIN / REGISTER)
+   ============================================ */
+.auth-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 100px 1.5rem 2rem;
+}
+
+.auth-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  padding: 2.5rem;
+  max-width: 420px;
+  width: 100%;
+  box-shadow: var(--shadow-md);
+  animation: fadeInUp 0.4s ease;
+}
+
+.auth-card-header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.auth-card-header .navbar-logo-icon {
+  margin: 0 auto 1rem;
+}
+
+.auth-card-header h1 {
+  font-family: 'Outfit', sans-serif;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 0.4rem;
+}
+
+.auth-card-header p {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.auth-submit-btn {
+  width: 100%;
+  justify-content: center;
+  padding: 13px;
+  margin-top: 0.5rem;
+}
+
+.auth-switch {
+  text-align: center;
+  margin-top: 1.5rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.auth-switch a {
+  color: var(--primary-light);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.auth-switch a:hover { text-decoration: underline; }
+
+/* ============================================
+   PAGE-LEVEL SPINNER (route transitions, protected routes)
+   ============================================ */
+.page-spinner-container {
+  min-height: 60vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-top: 64px;
+}
+
+.page-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--border);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+/* ============================================
+   DASHBOARD — MY RESUMES
+   ============================================ */
+.dashboard-page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 100px 2rem 3rem;
+}
+
+.dashboard-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 2.5rem;
+}
+
+.dashboard-header h1 {
+  font-family: 'Outfit', sans-serif;
+  font-size: 1.9rem;
+  font-weight: 700;
+}
+
+.dashboard-empty {
+  text-align: center;
+  padding: 5rem 2rem;
+  color: var(--text-muted);
+  background: var(--bg-card);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-xl);
+}
+
+.dashboard-empty h3 {
+  color: var(--text-secondary);
+  margin: 0.5rem 0;
+  font-size: 1.1rem;
+}
+
+.resume-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1.5rem;
+}
+
+.resume-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  transition: var(--transition);
+  animation: fadeInUp 0.4s ease;
+}
+
+.resume-card:hover {
+  border-color: var(--border-hover);
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-md);
+}
+
+.resume-card.is-busy { opacity: 0.6; pointer-events: none; }
+
+.resume-card-banner {
+  height: 70px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1rem;
+  font-size: 1.4rem;
+}
+
+.resume-card-ats {
+  font-size: 0.7rem;
+  font-weight: 700;
+  background: rgba(0, 0, 0, 0.35);
+  color: white;
+  padding: 4px 9px;
+  border-radius: 100px;
+}
+
+.resume-card-body { padding: 1.1rem 1.2rem 1.3rem; }
+
+.resume-card-name {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.resume-card-role {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+.resume-card-meta {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  margin-top: 8px;
+}
+
+.resume-card-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.resume-card-actions .btn-secondary {
+  padding: 8px 12px;
+  font-size: 0.78rem;
+  flex: 1;
+  justify-content: center;
+}
+
+.resume-card-actions .btn-danger {
+  padding: 8px 12px;
+  font-size: 0.78rem;
+}
+
+/* Skeleton loading */
+.skeleton-block {
+  background: linear-gradient(90deg, var(--bg-elevated) 25%, var(--bg-glass) 50%, var(--bg-elevated) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease infinite;
+  border-radius: var(--radius-sm);
+}
+
+.skeleton-card { pointer-events: none; }
+
+/* ============================================
+   404 PAGE
+   ============================================ */
+.not-found-page {
+  min-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 100px 1.5rem 2rem;
+}
+
+.not-found-code {
+  font-family: 'Outfit', sans-serif;
+  font-size: 6rem;
+  font-weight: 800;
+  background: var(--gradient-primary);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  line-height: 1;
+}
+
+.not-found-page h1 {
+  font-size: 1.4rem;
+  margin: 1rem 0 0.5rem;
+  color: var(--text-primary);
+}
+
+.not-found-page p {
+  color: var(--text-secondary);
+  margin-bottom: 1.75rem;
+  max-width: 380px;
+}
+
+/* ============================================
+   BRAND LOCKUP (logo mark + wordmark)
+   ============================================ */
+.brand-lockup {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  line-height: 1;
+}
+
+.brand-wordmark {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 700;
+  font-size: 1.3rem;
+  letter-spacing: -0.02em;
+  background: var(--gradient-primary);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* The navbar link styles its own <span> children; keep the lockup neutral so
+   only the wordmark carries the gradient. */
+.navbar-logo .brand-lockup {
+  background: none;
+  -webkit-text-fill-color: initial;
+}
+
+.auth-logo {
+  margin-bottom: 1.1rem;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.auth-logo .brand-wordmark { font-size: 1.45rem; }
+
+/* Inline SVG icons sit on the text baseline without squashing in flex rows */
+.icon {
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+
+/* Containers that used to hold an emoji glyph now centre an SVG instead.
+   (.navbar-mobile-toggle is deliberately excluded — it defines its own
+   `display: none` and is only revealed by the mobile media query.) */
+.feature-icon,
+.empty-preview-icon,
+.ats-tip-icon,
+.resume-card-banner {
+  display: flex;
+  align-items: center;
+}
+
+.feature-icon { justify-content: center; }
+
+.empty-preview-icon {
+  justify-content: center;
+  color: var(--text-muted);
+}
+
+.resume-card-banner { color: rgba(255, 255, 255, 0.92); }
+
+.ats-tip-icon { color: var(--primary-light); }
+
+/* Contact rows inside the rendered resume templates */
+.resume-classic-contact span,
+.resume-creative-contact span,
+.resume-modern-contact-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* ============================================
+   AUTH — OTP FLOW
+   ============================================ */
+.auth-steps {
+  display: flex;
+  justify-content: center;
+  gap: 7px;
+  margin-bottom: 1.5rem;
+}
+
+.auth-step-dot {
+  width: 26px;
+  height: 4px;
+  border-radius: 100px;
+  background: var(--border);
+  transition: var(--transition);
+}
+
+.auth-step-dot.active { background: var(--gradient-primary); }
+
+.auth-mode-toggle {
+  display: flex;
+  gap: 6px;
+  padding: 4px;
+  margin-bottom: 1.5rem;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.auth-mode-toggle button {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px 12px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.auth-mode-toggle button:hover { color: var(--text-secondary); }
+
+.auth-mode-toggle button.active {
+  background: rgba(108, 99, 255, 0.16);
+  color: var(--primary-light);
+  box-shadow: inset 0 0 0 1px rgba(108, 99, 255, 0.35);
+}
+
+/* OTP boxes */
+.otp-input-row {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 1.5rem;
+}
+
+.otp-box {
+  width: 100%;
+  max-width: 52px;
+  aspect-ratio: 1 / 1.15;
+  text-align: center;
+  font-family: 'Outfit', sans-serif;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  background: var(--bg-elevated);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-md);
+  outline: none;
+  transition: var(--transition);
+  caret-color: var(--primary-light);
+}
+
+.otp-box:focus {
+  border-color: var(--primary);
+  background: var(--bg-surface);
+  box-shadow: 0 0 0 3px rgba(108, 99, 255, 0.18);
+}
+
+.otp-box.filled {
+  border-color: rgba(108, 99, 255, 0.55);
+  color: var(--primary-light);
+}
+
+.otp-box:disabled { opacity: 0.55; cursor: not-allowed; }
+
+/* Resend / change-email row */
+.auth-resend-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 1rem;
+}
+
+.auth-link-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: none;
+  border: none;
+  padding: 4px 0;
+  color: var(--primary-light);
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.auth-link-btn:hover:not(:disabled) { text-decoration: underline; }
+
+.auth-link-btn:disabled {
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
+.auth-hint {
+  margin-top: 1.1rem;
+  text-align: center;
+  font-size: 0.78rem;
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+
+.auth-hint strong { color: var(--text-secondary); }
+
+.auth-verified-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 9px 14px;
+  margin-bottom: 1.5rem;
+  border-radius: var(--radius-md);
+  background: rgba(6, 214, 160, 0.1);
+  border: 1px solid rgba(6, 214, 160, 0.35);
+  color: var(--accent-green);
+  font-size: 0.8rem;
+  font-weight: 600;
+  word-break: break-all;
+}
+
+/* ============================================
    RESPONSIVE
+   (kept last so these overrides win the cascade)
    ============================================ */
 @media (max-width: 768px) {
   .form-row { grid-template-columns: 1fr; }
@@ -1436,5 +2100,39 @@
   .hero-title { font-size: 2rem; }
   .resume-modern { grid-template-columns: 1fr; }
   .resume-creative-body { grid-template-columns: 1fr; }
-  .navbar-links { display: none; }
+
+  .navbar-mobile-toggle { display: flex; }
+  .navbar-links-wrapper {
+    position: fixed;
+    top: 64px;
+    left: 0;
+    right: 0;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    background: rgba(10, 10, 15, 0.97);
+    -webkit-backdrop-filter: blur(20px);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+  }
+  .navbar-links-wrapper.open { max-height: 420px; }
+  .navbar-links {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    padding: 0.75rem 1.5rem 0.25rem;
+  }
+  .navbar-links a { padding: 12px 8px; width: 100%; }
+  .navbar-auth {
+    padding: 0.75rem 1.5rem 1.25rem;
+    border-top: 1px solid var(--border);
+  }
+  .navbar-auth-buttons { flex-direction: column; align-items: stretch; }
+  .navbar-user { flex-wrap: wrap; }
+
+  .dashboard-header { flex-direction: column; align-items: flex-start; gap: 1rem; }
+  .resume-grid { grid-template-columns: 1fr; }
 }

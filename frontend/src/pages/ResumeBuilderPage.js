@@ -1,8 +1,7 @@
 // ResumeBuilderPage.js — Full-featured AI-powered resume builder
 import React, { useState, useEffect, useCallback } from "react";
-import { useLocation, Link } from "react-router-dom";
+import { useLocation, useNavigate, useParams, Link } from "react-router-dom";
 import jsPDF from "jspdf";
-import axios from "axios";
 import {
   calculateATSScore,
   getSkillSuggestions,
@@ -12,13 +11,35 @@ import {
   reviewAndImproveResume,
   parseVoiceText
 } from "../services/aiService";
+import { getResumeById, addResume, updateResume } from "../services/resumeService";
+import { useAuth } from "../context/AuthContext";
+import { useToast } from "../context/ToastContext";
+import {
+  IconAlert, IconArrowLeft, IconBot, IconBriefcase, IconChart, IconCheckCircle,
+  IconClipboard, IconDownload, IconFile, IconFolder, IconGraduation, IconKey,
+  IconLightbulb, IconLink, IconMail, IconMapPin, IconMic, IconPencilLine,
+  IconPhone, IconPlus, IconSave, IconSearch, IconSparkles, IconStar,
+  IconStopCircle, IconTool, IconUpload, IconUser, IconZap,
+} from "../components/Icons";
+
+const DRAFT_KEY = "resumeai_draft";
+
+// Maps an ATS tip's `type` (from calculateATSScore) to its icon.
+const ATS_TIP_ICONS = {
+  warning: IconAlert,
+  experience: IconPencilLine,
+  skills: IconKey,
+  education: IconGraduation,
+  power: IconZap,
+  success: IconCheckCircle,
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // RESUME TEMPLATE RENDERS (live preview inside the builder)
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** Template 1 — Classic Professional */
-const ClassicTemplate = ({ data }) => (
+const ClassicTemplate = React.memo(({ data }) => (
   <div className="resume-classic">
     <div className="resume-classic-header">
       <div className="resume-classic-name">{data.name || "Your Name"}</div>
@@ -26,10 +47,10 @@ const ClassicTemplate = ({ data }) => (
         <p style={{ fontSize: "0.78rem", opacity: 0.85, marginTop: 6 }}>{data.summary}</p>
       )}
       <div className="resume-classic-contact">
-        {data.email && <span>✉ {data.email}</span>}
-        {data.phone && <span>📞 {data.phone}</span>}
-        {data.linkedin && <span>🔗 {data.linkedin}</span>}
-        {data.location && <span>📍 {data.location}</span>}
+        {data.email && <span><IconMail size={11} /> {data.email}</span>}
+        {data.phone && <span><IconPhone size={11} /> {data.phone}</span>}
+        {data.linkedin && <span><IconLink size={11} /> {data.linkedin}</span>}
+        {data.location && <span><IconMapPin size={11} /> {data.location}</span>}
       </div>
     </div>
     <div className="resume-classic-body">
@@ -69,10 +90,10 @@ const ClassicTemplate = ({ data }) => (
       )}
     </div>
   </div>
-);
+));
 
 /** Template 2 — Modern Dark */
-const ModernTemplate = ({ data }) => (
+const ModernTemplate = React.memo(({ data }) => (
   <div className="resume-modern">
     {/* Sidebar */}
     <div className="resume-modern-sidebar">
@@ -80,10 +101,10 @@ const ModernTemplate = ({ data }) => (
       <div className="resume-modern-role">{data.role || "Professional"}</div>
 
       <div className="resume-modern-section-title">Contact</div>
-      {data.email    && <div className="resume-modern-contact-item">✉ {data.email}</div>}
-      {data.phone    && <div className="resume-modern-contact-item">📞 {data.phone}</div>}
-      {data.linkedin && <div className="resume-modern-contact-item">🔗 {data.linkedin}</div>}
-      {data.location && <div className="resume-modern-contact-item">📍 {data.location}</div>}
+      {data.email    && <div className="resume-modern-contact-item"><IconMail size={11} /> {data.email}</div>}
+      {data.phone    && <div className="resume-modern-contact-item"><IconPhone size={11} /> {data.phone}</div>}
+      {data.linkedin && <div className="resume-modern-contact-item"><IconLink size={11} /> {data.linkedin}</div>}
+      {data.location && <div className="resume-modern-contact-item"><IconMapPin size={11} /> {data.location}</div>}
 
       {data.skillsList?.length > 0 && (
         <>
@@ -134,10 +155,10 @@ const ModernTemplate = ({ data }) => (
       )}
     </div>
   </div>
-);
+));
 
 /** Template 3 — Creative Gradient */
-const CreativeTemplate = ({ data }) => {
+const CreativeTemplate = React.memo(({ data }) => {
   const initials = (data.name || "YN")
     .split(" ")
     .map((w) => w[0])
@@ -155,9 +176,9 @@ const CreativeTemplate = ({ data }) => {
             <div style={{ fontSize: "0.78rem", color: "#666", marginBottom: 4 }}>{data.role}</div>
           )}
           <div className="resume-creative-contact">
-            {data.email    && <span>✉ {data.email}</span>}
-            {data.phone    && <span>📞 {data.phone}</span>}
-            {data.location && <span>📍 {data.location}</span>}
+            {data.email    && <span><IconMail size={11} /> {data.email}</span>}
+            {data.phone    && <span><IconPhone size={11} /> {data.phone}</span>}
+            {data.location && <span><IconMapPin size={11} /> {data.location}</span>}
           </div>
         </div>
       </div>
@@ -209,7 +230,7 @@ const CreativeTemplate = ({ data }) => {
       </div>
     </div>
   );
-};
+});
 
 const TEMPLATES = { 1: ClassicTemplate, 2: ModernTemplate, 3: CreativeTemplate };
 const TEMPLATE_NAMES = { 1: "Classic Professional", 2: "Modern Dark", 3: "Creative Gradient" };
@@ -218,12 +239,12 @@ const TEMPLATE_NAMES = { 1: "Classic Professional", 2: "Modern Dark", 3: "Creati
 // TABS DEFINITION
 // ─────────────────────────────────────────────────────────────────────────────
 const TABS = [
-  { id: "basics",   label: "Basics",      icon: "👤" },
-  { id: "summary",  label: "Summary",     icon: "📋" },
-  { id: "exp",      label: "Experience",  icon: "💼" },
-  { id: "edu",      label: "Education",   icon: "🎓" },
-  { id: "skills",   label: "Skills",      icon: "🔧" },
-  { id: "extra",    label: "Extra",       icon: "⭐" },
+  { id: "basics",   label: "Basics",      Icon: IconUser },
+  { id: "summary",  label: "Summary",     Icon: IconClipboard },
+  { id: "exp",      label: "Experience",  Icon: IconBriefcase },
+  { id: "edu",      label: "Education",   Icon: IconGraduation },
+  { id: "skills",   label: "Skills",      Icon: IconTool },
+  { id: "extra",    label: "Extra",       Icon: IconStar },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -231,6 +252,10 @@ const TABS = [
 // ─────────────────────────────────────────────────────────────────────────────
 const ResumeBuilderPage = () => {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { id: resumeId } = useParams();
+  const { user } = useAuth();
+  const { showToast } = useToast();
   const params   = new URLSearchParams(location.search);
   const initialTemplate = parseInt(params.get("template") || "1", 10);
 
@@ -246,9 +271,9 @@ const ResumeBuilderPage = () => {
   const [suggestedSkills, setSuggestedSkills] = useState([]);
   const [atsResult, setAtsResult]       = useState({ score: 0, level: "low", tips: [] });
   const [aiSuggestion, setAiSuggestion] = useState("");
-  const [status, setStatus]             = useState({ type: "", msg: "" });
   const [loading, setLoading]           = useState({ summary: false, skills: false, experience: false, save: false, upload: false, review: false });
   const [aiReviewResult, setAiReviewResult] = useState(null);
+  const [loadingResume, setLoadingResume] = useState(!!resumeId);
   const fileInputRef = React.useRef(null);
 
   const [listeningField, setListeningField] = useState(null);
@@ -307,7 +332,7 @@ const ResumeBuilderPage = () => {
       interimTranscriptRef.current = "";
       
       if (text) {
-        showStatus("success", "⏳ AI is processing your voice input...");
+        showStatus("success", "AI is processing your voice input…");
         setLoading((p) => ({ ...p, upload: true }));
         try {
           if (field === "global") {
@@ -327,7 +352,7 @@ const ResumeBuilderPage = () => {
               certifications: parsedData.certifications ? (prev.certifications ? prev.certifications + "\n\n" + parsedData.certifications : parsedData.certifications) : prev.certifications,
               skillsList: parsedData.skillsList?.length ? [...new Set([...prev.skillsList, ...parsedData.skillsList])] : prev.skillsList,
             }));
-            setAiSuggestion("✨ Successfully processed your full voice input into resume sections!");
+            setAiSuggestion("Successfully processed your full voice input into resume sections!");
           } else {
             const basicFields = ["name", "role", "email", "phone", "location", "linkedin"];
             if (basicFields.includes(field)) {
@@ -362,7 +387,7 @@ const ResumeBuilderPage = () => {
                 ...prev,
                 [field]: processedText
               }));
-              setAiSuggestion(`✨ Successfully added dictated input to ${field}!`);
+              setAiSuggestion(`Successfully added dictated input to ${field}!`);
             } else {
               // AI format for textareas
               const parsedData = await parseVoiceText(text, field);
@@ -371,10 +396,10 @@ const ResumeBuilderPage = () => {
                 ...prev,
                 [field]: prev[field] ? prev[field] + "\n\n" + formattedText : formattedText
               }));
-              setAiSuggestion(`✨ Successfully formatted and added your dictated input to ${field}!`);
+              setAiSuggestion(`Successfully formatted and added your dictated input to ${field}!`);
             }
           }
-          showStatus("success", "✅ Voice input processed successfully!");
+          showStatus("success", "Voice input processed successfully!");
         } catch (err) {
           showStatus("error", err.message || "Failed to process voice text. Backend error.");
         } finally {
@@ -394,7 +419,7 @@ const ResumeBuilderPage = () => {
       finalTranscriptRef.current = "";
       interimTranscriptRef.current = "";
       try { recognitionRef.current.start(); } catch(e){}
-      showStatus("success", `🎙️ Listening... Dictate for ${field === "global" ? "your entire resume" : field}.`);
+      showStatus("success", `Listening… Dictate for ${field === "global" ? "your entire resume" : field}.`);
     }
   };
 
@@ -419,7 +444,9 @@ const ResumeBuilderPage = () => {
         transition: "all 0.3s ease"
       }}
     >
-      {listeningField === field ? "🛑 Stop" : "🎙️ Dictate"}
+      {listeningField === field
+        ? <><IconStopCircle size={12} /> Stop</>
+        : <><IconMic size={12} /> Dictate</>}
     </button>
   );
 
@@ -439,11 +466,59 @@ const ResumeBuilderPage = () => {
     return () => clearTimeout(timer);
   }, [formData.experience, formData.role]);
 
+  // ── Edit mode: load an existing saved resume by :id ────────────────────────
+  useEffect(() => {
+    if (!resumeId) return;
+    let cancelled = false;
+    setLoadingResume(true);
+    getResumeById(resumeId)
+      .then((resume) => {
+        if (cancelled) return;
+        const { _id, user: owner, createdAt, updatedAt, __v, ...rest } = resume;
+        setFormData((prev) => ({ ...prev, ...rest }));
+        setTemplateId(resume.templateId || 1);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        showToast("error", "Couldn't find that resume. It may have been deleted.");
+        navigate("/dashboard", { replace: true });
+      })
+      .finally(() => { if (!cancelled) setLoadingResume(false); });
+    return () => { cancelled = true; };
+  }, [resumeId, navigate, showToast]);
+
+  // ── Anonymous drafting safety net: restore an unsaved draft once on mount ──
+  useEffect(() => {
+    if (resumeId) return; // editing a saved resume — don't clobber it with an old draft
+    try {
+      const raw = localStorage.getItem(DRAFT_KEY);
+      if (!raw) return;
+      const draft = JSON.parse(raw);
+      const hasSavedContent = draft?.formData?.name || draft?.formData?.experience;
+      if (hasSavedContent) {
+        setFormData((prev) => ({ ...prev, ...draft.formData }));
+        if (draft.templateId) setTemplateId(draft.templateId);
+        showToast("info", "Restored your unsaved draft from last time.");
+      }
+    } catch { /* ignore malformed draft */ }
+  }, [resumeId, showToast]);
+
+  // ── Anonymous drafting safety net: debounced autosave to localStorage ──────
+  useEffect(() => {
+    if (resumeId) return; // don't shadow a saved resume's data with draft state
+    const timer = setTimeout(() => {
+      const hasContent = formData.name || formData.email || formData.experience;
+      if (hasContent) {
+        localStorage.setItem(DRAFT_KEY, JSON.stringify({ formData, templateId }));
+      }
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, [formData, templateId, resumeId]);
+
   // ── Helpers ────────────────────────────────────────────────────────────────
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
-    setStatus({ type: "", msg: "" });
   };
 
   const addSkill = () => {
@@ -469,10 +544,9 @@ const ResumeBuilderPage = () => {
     }));
   };
 
-  const showStatus = (type, msg) => {
-    setStatus({ type, msg });
-    setTimeout(() => setStatus({ type: "", msg: "" }), 4000);
-  };
+  // Thin adapter so the rest of this file can keep calling showStatus(type, msg)
+  // while notifications render as shared, non-blocking toasts.
+  const showStatus = (type, msg) => showToast(type === "error" ? "error" : "success", msg);
 
   // ── AI Actions ─────────────────────────────────────────────────────────────
   const handleGenerateSummary = async () => {
@@ -481,7 +555,7 @@ const ResumeBuilderPage = () => {
     try {
       const summary = await generateAISummary(formData);
       setFormData((prev) => ({ ...prev, summary }));
-      setAiSuggestion("✨ AI-generated summary applied! Edit it to personalize further.");
+      setAiSuggestion("AI-generated summary applied! Edit it to personalize further.");
     } catch {
       setAiSuggestion("Could not generate summary. Please fill in more details.");
     } finally {
@@ -498,7 +572,7 @@ const ResumeBuilderPage = () => {
     try {
       const enhanced = await enhanceExperience(formData.experience);
       setFormData((prev) => ({ ...prev, experience: enhanced }));
-      setAiSuggestion("✨ Experience enhanced with action verbs & impact language!");
+      setAiSuggestion("Experience enhanced with action verbs & impact language!");
     } catch {
       setAiSuggestion("Enhancement unavailable. Check your internet connection.");
     } finally {
@@ -511,7 +585,7 @@ const ResumeBuilderPage = () => {
     try {
       const suggestions = await getSkillSuggestions(formData.experience + " " + formData.role);
       setSuggestedSkills(suggestions.filter(s => !formData.skillsList.includes(s)));
-      setAiSuggestion("✨ AI skill suggestions loaded based on your experience!");
+      setAiSuggestion("AI skill suggestions loaded based on your experience!");
     } catch {
       setAiSuggestion("Skill suggestions unavailable offline.");
     } finally {
@@ -528,7 +602,7 @@ const ResumeBuilderPage = () => {
     }
     
     setLoading((p) => ({ ...p, upload: true }));
-    showStatus("success", "⏳ AI is reading and extracting your PDF...");
+    showStatus("success", "AI is reading and extracting your PDF…");
     try {
       const parsedData = await parseUploadedResume(file);
       setFormData((prev) => ({
@@ -546,8 +620,8 @@ const ResumeBuilderPage = () => {
         certifications: parsedData.certifications || prev.certifications,
         skillsList: parsedData.skillsList?.length ? parsedData.skillsList : prev.skillsList,
       }));
-      setAiSuggestion("✨ Successfully loaded content from uploaded PDF into the builder!");
-      showStatus("success", "✅ PDF loaded successfully!");
+      setAiSuggestion("Successfully loaded content from uploaded PDF into the builder!");
+      showStatus("success", "PDF loaded successfully!");
     } catch {
       showStatus("error", "Failed to parse the PDF. Check if backend is running.");
     } finally {
@@ -558,11 +632,11 @@ const ResumeBuilderPage = () => {
 
   const handleDeepReview = async () => {
     setLoading((p) => ({ ...p, review: true }));
-    showStatus("success", "⏳ AI is deeply analyzing your resume for flaws...");
+    showStatus("success", "AI is deeply analyzing your resume for flaws…");
     try {
       const res = await reviewAndImproveResume(formData);
       setAiReviewResult(res);
-      showStatus("success", "✨ Full AI review complete!");
+      showStatus("success", "Full AI review complete!");
     } catch {
       showStatus("error", "AI deep review failed.");
     } finally {
@@ -577,9 +651,9 @@ const ResumeBuilderPage = () => {
       summary: aiReviewResult.improvedSummary,
       experience: aiReviewResult.improvedExperience
     }));
-    setAiSuggestion("✨ Advanced AI improvements applied to Summary and Experience!");
+    setAiSuggestion("Advanced AI improvements applied to Summary and Experience!");
     setAiReviewResult(null);
-    showStatus("success", "✅ Missing features fixed!");
+    showStatus("success", "Missing features fixed!");
   };
 
   // ── Save to backend ────────────────────────────────────────────────────────
@@ -590,18 +664,34 @@ const ResumeBuilderPage = () => {
       showStatus("error", `Please fill in your ${missing}.`);
       return;
     }
+
+    if (!user) {
+      localStorage.setItem(DRAFT_KEY, JSON.stringify({ formData, templateId }));
+      showStatus("error", "Please log in to save your resume — your draft has been kept.");
+      navigate(`/login?redirect=${encodeURIComponent(resumeId ? `/builder/${resumeId}` : "/builder")}`);
+      return;
+    }
+
     setLoading((p) => ({ ...p, save: true }));
     try {
       const payload = {
         ...formData,
         skills: formData.skillsList.join(", "),
         templateId,
+        atsScore: atsResult.score,
       };
-      const baseUrl = process.env.NODE_ENV === "production" ? "" : "http://localhost:5000";
-      await axios.post(`${baseUrl}/api/resumes/add`, payload);
-      showStatus("success", "✅ Resume saved successfully to database!");
-    } catch {
-      showStatus("success", "✅ Resume ready! (Backend not running — data stored locally)");
+
+      if (resumeId) {
+        await updateResume(resumeId, payload);
+        showStatus("success", "Resume updated successfully!");
+      } else {
+        const saved = await addResume(payload);
+        localStorage.removeItem(DRAFT_KEY);
+        showStatus("success", "Resume saved to My Resumes!");
+        navigate(`/builder/${saved._id}`, { replace: true });
+      }
+    } catch (err) {
+      showStatus("error", err.response?.data?.message || "Failed to save resume. Please try again.");
     } finally {
       setLoading((p) => ({ ...p, save: false }));
     }
@@ -684,10 +774,18 @@ const ResumeBuilderPage = () => {
 
     const fileName = `${formData.name.replace(/\s+/g, "_")}_Resume.pdf`;
     doc.save(fileName);
-    showStatus("success", `📥 ${fileName} downloaded!`);
+    showStatus("success", `${fileName} downloaded!`);
   }, [formData]);
 
   // ─────────────────────────────────────────────────────────────────────────
+  if (loadingResume) {
+    return (
+      <div className="page-spinner-container">
+        <div className="page-spinner" />
+      </div>
+    );
+  }
+
   const TemplateComponent = TEMPLATES[templateId] || ClassicTemplate;
   const hasContent = formData.name || formData.email || formData.experience || formData.education;
 
@@ -696,7 +794,7 @@ const ResumeBuilderPage = () => {
       {/* ── Header ── */}
       <div className="builder-header">
         <div>
-          <h1>✏️ Resume Builder</h1>
+          <h1><IconPencilLine size={22} /> Resume Builder</h1>
           <p style={{ color: "var(--text-muted)", fontSize: "0.85rem", marginTop: 4 }}>
             Template: <span style={{ color: "var(--primary-light)", fontWeight: 600 }}>{TEMPLATE_NAMES[templateId]}</span>
           </p>
@@ -738,7 +836,9 @@ const ResumeBuilderPage = () => {
             onClick={() => toggleVoiceField("global")}
             disabled={loading.upload && listeningField !== "global"}
           >
-            {listeningField === "global" ? "🛑 Stop Global AI" : "🎙️ Global Voice AI"}
+            {listeningField === "global"
+              ? <><IconStopCircle size={16} /> Stop Global AI</>
+              : <><IconMic size={16} /> Global Voice AI</>}
           </button>
           <input 
             type="file" 
@@ -753,23 +853,23 @@ const ResumeBuilderPage = () => {
             onClick={() => fileInputRef.current?.click()}
             disabled={loading.upload}
           >
-            {loading.upload ? "📂 Parsing..." : "📂 Upload Resume"}
+            {loading.upload
+              ? <><span className="loading-spinner" /> Parsing…</>
+              : <><IconUpload size={16} /> Upload Resume</>}
           </button>
           <Link to="/templates" className="btn-secondary" style={{ fontSize: "0.85rem", padding: "9px 16px" }}>
-            ← Templates
+            <IconArrowLeft size={16} /> Templates
           </Link>
+          {user && (
+            <Link to="/dashboard" className="btn-secondary" style={{ fontSize: "0.85rem", padding: "9px 16px" }}>
+              <IconFolder size={16} /> My Resumes
+            </Link>
+          )}
           <button className="btn-export" onClick={handleExportPDF} id="export-pdf-btn">
-            📥 Export PDF
+            <IconDownload size={16} /> Export PDF
           </button>
         </div>
       </div>
-
-      {/* ── Status Banner ── */}
-      {status.msg && (
-        <div className={`alert alert-${status.type}`} role="alert">
-          {status.msg}
-        </div>
-      )}
 
       {/* ── Builder Layout ── */}
       <div className="builder-layout">
@@ -788,7 +888,7 @@ const ResumeBuilderPage = () => {
                   className={`form-tab ${activeTab === tab.id ? "active" : ""}`}
                   onClick={() => setActiveTab(tab.id)}
                 >
-                  <span>{tab.icon}</span>
+                  <tab.Icon size={15} />
                   {tab.label}
                 </button>
               ))}
@@ -850,7 +950,7 @@ const ResumeBuilderPage = () => {
                     >
                       {loading.summary
                         ? <><span className="loading-spinner" /> Generating…</>
-                        : <>🤖 AI Generate</>}
+                        : <><IconBot size={13} /> AI Generate</>}
                     </button>
                   </label>
                   <textarea id="summary" name="summary" className="form-textarea"
@@ -860,7 +960,7 @@ const ResumeBuilderPage = () => {
                   />
                 </div>
                 <p style={{ fontSize: "0.78rem", color: "var(--text-muted)", lineHeight: 1.6 }}>
-                  💡 A strong summary increases interview callbacks by up to 40%. Click "AI Generate"
+                  <IconLightbulb size={14} /> A strong summary increases interview callbacks by up to 40%. Click "AI Generate"
                   to auto-create one based on your profile.
                 </p>
               </div>
@@ -878,7 +978,7 @@ const ResumeBuilderPage = () => {
                     >
                       {loading.experience
                         ? <><span className="loading-spinner" /> Enhancing…</>
-                        : <>⚡ AI Enhance</>}
+                        : <><IconZap size={13} /> AI Enhance</>}
                     </button>
                   </label>
                   <textarea id="experience" name="experience" className="form-textarea"
@@ -888,7 +988,7 @@ const ResumeBuilderPage = () => {
                   />
                 </div>
                 <p style={{ fontSize: "0.78rem", color: "var(--text-muted)", lineHeight: 1.6 }}>
-                  💡 Use the "AI Enhance" button to automatically add action verbs, metrics, and impact language to your experience.
+                  <IconLightbulb size={14} /> Use the "AI Enhance" button to automatically add action verbs, metrics, and impact language to your experience.
                 </p>
               </div>
 
@@ -917,7 +1017,7 @@ const ResumeBuilderPage = () => {
                     >
                       {loading.skills
                         ? <><span className="loading-spinner" /> Loading…</>
-                        : <>🤖 AI Suggest</>}
+                        : <><IconBot size={13} /> AI Suggest</>}
                     </button>
                   </label>
                   <div className="skill-input-row">
@@ -930,7 +1030,7 @@ const ResumeBuilderPage = () => {
                       onChange={(e) => setSkillInput(e.target.value)}
                       onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addSkill())}
                     />
-                    <button className="skill-add-btn" onClick={addSkill} id="add-skill-btn">+ Add</button>
+                    <button className="skill-add-btn" onClick={addSkill} id="add-skill-btn"><IconPlus size={14} /> Add</button>
                   </div>
                 </div>
 
@@ -950,7 +1050,7 @@ const ResumeBuilderPage = () => {
                 {suggestedSkills.length > 0 && (
                   <div className="suggested-skills">
                     <div className="suggested-skills-label">
-                      🤖 AI Suggestions (click to add):
+                      <IconBot size={14} /> AI Suggestions (click to add):
                     </div>
                     {suggestedSkills.map((skill) => (
                       <button
@@ -959,7 +1059,7 @@ const ResumeBuilderPage = () => {
                         onClick={() => addSuggestedSkill(skill)}
                         id={`suggest-skill-${skill.replace(/\s+/g, "-")}`}
                       >
-                        + {skill}
+                        <IconPlus size={12} /> {skill}
                       </button>
                     ))}
                   </div>
@@ -990,7 +1090,7 @@ const ResumeBuilderPage = () => {
             {/* ── AI Insight Panel ── */}
             {aiSuggestion && (
               <div className="ai-panel">
-                <div className="ai-panel-title">🤖 AI Insight</div>
+                <div className="ai-panel-title"><IconBot size={15} /> AI Insight</div>
                 <div className="ai-suggestion-text">{aiSuggestion}</div>
               </div>
             )}
@@ -998,7 +1098,7 @@ const ResumeBuilderPage = () => {
             {/* ── ATS Score Panel ── */}
             <div className="ats-panel">
               <div className="ats-header">
-                <span className="ats-title">📊 ATS Score</span>
+                <span className="ats-title"><IconChart size={15} /> ATS Score</span>
                 <span className={`ats-score-badge ${atsResult.level}`}>
                   {atsResult.score}/100
                 </span>
@@ -1012,7 +1112,7 @@ const ResumeBuilderPage = () => {
               <div className="ats-tips">
                 {atsResult.tips.slice(0, 3).map((tip, i) => (
                   <div key={i} className="ats-tip">
-                    <span className="ats-tip-icon">{tip.icon}</span>
+                    <span className="ats-tip-icon">{React.createElement(ATS_TIP_ICONS[tip.type] || IconLightbulb, { size: 14 })}</span>
                     <span>{tip.text}</span>
                   </div>
                 ))}
@@ -1021,7 +1121,7 @@ const ResumeBuilderPage = () => {
 
             {aiReviewResult && (
               <div className="ai-panel" style={{ marginTop: 15, background: "rgba(255, 69, 138, 0.1)", border: "1px solid rgba(255, 69, 138, 0.3)" }}>
-                <div className="ai-panel-title" style={{ color: "#ff458a" }}>🔥 AI Deep Review Report (Score: {aiReviewResult.atsScore})</div>
+                <div className="ai-panel-title" style={{ color: "#ff458a" }}><IconSparkles size={15} /> AI Deep Review Report (Score: {aiReviewResult.atsScore})</div>
                 <div style={{ marginBottom: 10, fontSize: "0.85rem", color: "var(--text-color)" }}>
                   <strong>Missing Features / Flaws:</strong>
                   <ul style={{ paddingLeft: 20, marginTop: 5, lineHeight: 1.6 }}>
@@ -1035,7 +1135,7 @@ const ResumeBuilderPage = () => {
                   style={{ width: "100%", justifyContent: "center", background: "linear-gradient(135deg, #ff458a, #6c63ff)", color: "#fff", padding: "10px", fontWeight: "bold" }}
                   onClick={applyDeepReviewFixes}
                 >
-                  ⚡ Auto-Improve & Fix All Flaws Now
+                  <IconZap size={15} /> Auto-Improve & Fix All Flaws Now
                 </button>
               </div>
             )}
@@ -1046,7 +1146,9 @@ const ResumeBuilderPage = () => {
               onClick={handleDeepReview}
               disabled={loading.review}
             >
-               {loading.review ? "🔍 Analyzing flaws..." : "🔍 Run AI Deep Review"}
+               {loading.review
+                ? <><span className="loading-spinner" /> Analyzing flaws…</>
+                : <><IconSearch size={15} /> Run AI Deep Review</>}
             </button>
 
             {/* ── Form Actions ── */}
@@ -1059,10 +1161,12 @@ const ResumeBuilderPage = () => {
               >
                 {loading.save
                   ? <><span className="loading-spinner" /> Saving…</>
-                  : <>💾 Save Resume</>}
+                  : resumeId
+                    ? <><IconSave size={15} /> Update Resume</>
+                    : <><IconSave size={15} /> Save Resume</>}
               </button>
               <button className="btn-export" onClick={handleExportPDF} id="export-pdf-footer-btn">
-                📥 Export PDF
+                <IconDownload size={16} /> Export PDF
               </button>
             </div>
           </div>
@@ -1086,7 +1190,7 @@ const ResumeBuilderPage = () => {
                 <TemplateComponent data={formData} />
               ) : (
                 <div className="empty-preview">
-                  <div className="empty-preview-icon">📄</div>
+                  <div className="empty-preview-icon"><IconFile size={40} /></div>
                   <h3>Your resume will appear here</h3>
                   <p>Start filling in your details on the left to see a live preview of your professional resume.</p>
                 </div>

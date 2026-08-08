@@ -6,6 +6,9 @@ const mongoose = require("mongoose");
  */
 const resumeSchema = new mongoose.Schema(
   {
+    // Owner
+    user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
+
     // Basic Info
     name:           { type: String, required: true, trim: true },
     email:          { type: String, required: true, trim: true, lowercase: true },
@@ -16,7 +19,9 @@ const resumeSchema = new mongoose.Schema(
 
     // Content
     summary:        { type: String, default: "" },
-    experience:     { type: String, required: true, default: "" },
+    // Not `required`: the builder only enforces name/email/phone as mandatory,
+    // and users should be able to save a draft before writing their experience.
+    experience:     { type: String, default: "" },
     education:      { type: String, default: "" },
     skills:         { type: String, default: "" },         // comma-separated string
     skillsList:     { type: [String], default: [] },       // array of individual skills

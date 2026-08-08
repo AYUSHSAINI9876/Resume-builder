@@ -1,13 +1,31 @@
-import axios from "axios";
+import api from "./api";
 
-const API_URL = process.env.NODE_ENV === "production" ? "/api/resumes/" : "http://localhost:5000/api/resumes/";
-
-// Get all resumes
+// Get all of the current user's resumes
 export const getAllResumes = async () => {
-  return await axios.get(`${API_URL}/all`);
+  const res = await api.get("/resumes/all");
+  return res.data;
+};
+
+// Get a single resume by ID
+export const getResumeById = async (id) => {
+  const res = await api.get(`/resumes/${id}`);
+  return res.data;
 };
 
 // Add a new resume
 export const addResume = async (resumeData) => {
-  return await axios.post(`${API_URL}/add`, resumeData);
+  const res = await api.post("/resumes/add", resumeData);
+  return res.data;
+};
+
+// Update an existing resume
+export const updateResume = async (id, resumeData) => {
+  const res = await api.put(`/resumes/${id}`, resumeData);
+  return res.data;
+};
+
+// Delete a resume
+export const deleteResume = async (id) => {
+  const res = await api.delete(`/resumes/${id}`);
+  return res.data;
 };

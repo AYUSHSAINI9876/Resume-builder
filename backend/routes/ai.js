@@ -30,12 +30,15 @@ const callGemini = (prompt) => {
 
     const options = {
       hostname: "generativelanguage.googleapis.com",
-      path: `/v1beta/models/gemini-pro:generateContent?key=${apiKey}`,
+      // gemini-2.0-flash: current, fast, free-tier-friendly model.
+      // (the previously used "gemini-pro" alias is retired on the v1beta API and was failing every call)
+      path: `/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "Content-Length": Buffer.byteLength(body),
       },
+      timeout: 12000, // avoid hanging serverless invocations if Gemini stalls
     };
 
     const req = https.request(options, (res) => {
@@ -44,6 +47,9 @@ const callGemini = (prompt) => {
       res.on("end", () => {
         try {
           const parsed = JSON.parse(data);
+          if (parsed?.error) {
+            return reject(new Error(parsed.error.message || "Gemini API error"));
+          }
           const text = parsed?.candidates?.[0]?.content?.parts?.[0]?.text || "";
           resolve(text.trim());
         } catch (e) {
@@ -52,6 +58,7 @@ const callGemini = (prompt) => {
       });
     });
 
+    req.on("timeout", () => req.destroy(new Error("Gemini request timed out")));
     req.on("error", reject);
     req.write(body);
     req.end();

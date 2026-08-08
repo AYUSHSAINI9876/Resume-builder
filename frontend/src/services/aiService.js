@@ -1,9 +1,6 @@
 // services/aiService.js
 // AI-powered resume assistance using Gemini API (client-side fallback)
-import axios from "axios";
-
-// Automatically use relative path '/api' in production (Vercel) and localhost in development
-const API_URL = process.env.NODE_ENV === "production" ? "/api" : "http://localhost:5000/api";
+import api from "./api";
 
 /**
  * Calculate local ATS score based on resume completeness and keyword density
@@ -19,25 +16,25 @@ export const calculateATSScore = (formData) => {
   if (formData.email?.trim())      score += 8;
   if (formData.phone?.trim())      score += 6;
   if (formData.summary?.trim())    score += 10;
-  else tips.push({ icon: "⚠️", text: "Add a professional summary — ATS systems rank resumes with summaries 40% higher." });
+  else tips.push({ type: "warning", text: "Add a professional summary — ATS systems rank resumes with summaries 40% higher." });
 
   // Experience quality (25 pts)
   const expWords = formData.experience?.split(/\s+/).length || 0;
   if (expWords >= 60)      score += 25;
   else if (expWords >= 30) score += 15;
   else if (expWords >= 10) score += 8;
-  if (expWords < 50) tips.push({ icon: "📝", text: "Expand your experience section — aim for 50+ words with action verbs & metrics." });
+  if (expWords < 50) tips.push({ type: "experience", text: "Expand your experience section — aim for 50+ words with action verbs & metrics." });
 
   // Skills presence (20 pts)
   const skillCount = formData.skillsList?.length || 0;
   if (skillCount >= 8)     score += 20;
   else if (skillCount >= 5) score += 15;
   else if (skillCount >= 3) score += 8;
-  if (skillCount < 6) tips.push({ icon: "🔑", text: `Add more skills — you have ${skillCount}, aim for at least 6-8 relevant ones.` });
+  if (skillCount < 6) tips.push({ type: "skills", text: `Add more skills — you have ${skillCount}, aim for at least 6-8 relevant ones.` });
 
   // Education presence (10 pts)
   if (formData.education?.trim()?.length > 20) score += 10;
-  else tips.push({ icon: "🎓", text: "Include your education details including degree, institution, and year." });
+  else tips.push({ type: "education", text: "Include your education details including degree, institution, and year." });
 
   // Keyword checks (5 pts)
   const allText = [
@@ -46,12 +43,12 @@ export const calculateATSScore = (formData) => {
   const powerWords = ["led","developed","managed","increased","reduced","built","designed","optimized","implemented","delivered"];
   const found = powerWords.filter(w => allText.includes(w));
   score += Math.min(5, found.length);
-  if (found.length < 3) tips.push({ icon: "💪", text: "Use action verbs: Led, Developed, Increased, Optimized, Delivered." });
+  if (found.length < 3) tips.push({ type: "power", text: "Use action verbs: Led, Developed, Increased, Optimized, Delivered." });
 
   const level = score >= 75 ? "high" : score >= 45 ? "medium" : "low";
 
   // Always add a positive tip if missing summary
-  if (!tips.length) tips.push({ icon: "✅", text: "Great! Your resume is well-optimized for ATS systems." });
+  if (!tips.length) tips.push({ type: "success", text: "Great! Your resume is well-optimized for ATS systems." });
 
   return { score: Math.min(100, score), level, tips };
 };
@@ -67,7 +64,7 @@ export const getSkillSuggestions = async (context = "") => {
 
   // Try backend AI endpoint first
   try {
-    const res = await axios.post(`${API_URL}/ai/suggest-skills`, { context }, { timeout: 5000 });
+    const res = await api.post("/ai/suggest-skills", { context }, { timeout: 5000 });
     if (res.data?.skills?.length) return res.data.skills;
   } catch {
     // fall through to local suggestions
@@ -102,7 +99,7 @@ export const getSkillSuggestions = async (context = "") => {
  */
 export const generateAISummary = async (formData) => {
   try {
-    const res = await axios.post(`${API_URL}/ai/generate-summary`, { formData }, { timeout: 8000 });
+    const res = await api.post("/ai/generate-summary", { formData }, { timeout: 8000 });
     if (res.data?.summary) return res.data.summary;
   } catch {
     // fall through to template
@@ -121,7 +118,7 @@ export const generateAISummary = async (formData) => {
  */
 export const enhanceExperience = async (rawExperience) => {
   try {
-    const res = await axios.post(`${API_URL}/ai/enhance-experience`, { text: rawExperience }, { timeout: 8000 });
+    const res = await api.post("/ai/enhance-experience", { text: rawExperience }, { timeout: 8000 });
     if (res.data?.enhanced) return res.data.enhanced;
   } catch {
     // fall through
@@ -146,7 +143,7 @@ export const parseUploadedResume = async (file) => {
     const formData = new FormData();
     formData.append("resumeFile", file);
 
-    const res = await axios.post(`${API_URL}/ai/parse-resume`, formData, {
+    const res = await api.post("/ai/parse-resume", formData, {
       headers: { "Content-Type": "multipart/form-data" }
     });
     return res.data;
@@ -161,7 +158,7 @@ export const parseUploadedResume = async (file) => {
  */
 export const reviewAndImproveResume = async (formData) => {
   try {
-    const res = await axios.post(`${API_URL}/ai/review-and-improve`, { formData });
+    const res = await api.post("/ai/review-and-improve", { formData }, { timeout: 15000 });
     return res.data;
   } catch (err) {
     console.error("AI review resume error:", err);
@@ -186,7 +183,7 @@ export const reviewAndImproveResume = async (formData) => {
  */
 export const parseVoiceText = async (text, targetField = null) => {
   try {
-    const res = await axios.post(`${API_URL}/ai/parse-voice`, { text, targetField });
+    const res = await api.post("/ai/parse-voice", { text, targetField }, { timeout: 15000 });
     return res.data;
   } catch (err) {
     console.error("AI parse voice error:", err);

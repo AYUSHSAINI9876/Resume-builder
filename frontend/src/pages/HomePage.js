@@ -1,6 +1,9 @@
 // HomePage.js — Premium landing page with hero, features, stats
 import React, { useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
+import {
+  IconBot, IconChart, IconPalette, IconZap, IconRocket, IconTarget,
+} from "../components/Icons";
 
 /**
  * Animated counter hook for stats
@@ -51,28 +54,28 @@ const StatItem = ({ value, suffix = "", label }) => {
 /** Features configuration */
 const features = [
   {
-    icon: "🤖",
+    Icon: IconBot,
     colorClass: "purple",
     title: "AI-Powered Suggestions",
     desc: "Gemini AI analyzes your profile and suggests impactful bullet points, skills, and role-specific summaries.",
     delay: "0.1s",
   },
   {
-    icon: "📊",
+    Icon: IconChart,
     colorClass: "blue",
     title: "Real-Time ATS Score",
     desc: "Instantly see your ATS compatibility score with tips to beat Applicant Tracking Systems at top companies.",
     delay: "0.2s",
   },
   {
-    icon: "🎨",
+    Icon: IconPalette,
     colorClass: "pink",
     title: "3 Professional Templates",
     desc: "Choose from Classic, Modern, or Creative templates — each ATS-friendly and recruiter-approved.",
     delay: "0.3s",
   },
   {
-    icon: "⚡",
+    Icon: IconZap,
     colorClass: "green",
     title: "One-Click PDF Export",
     desc: "Download your resume as a perfectly formatted PDF in seconds. No fuss, no watermarks.",
@@ -114,10 +117,10 @@ const HomePage = () => {
         {/* CTA Buttons */}
         <div className="hero-buttons">
           <Link to="/templates" className="btn-primary" id="hero-start-btn">
-            🚀 Start Building Free
+            <IconRocket size={18} /> Start Building Free
           </Link>
           <Link to="/builder" className="btn-secondary" id="hero-builder-btn">
-            ⚡ Quick Build
+            <IconZap size={18} /> Quick Build
           </Link>
         </div>
 
@@ -155,7 +158,7 @@ const HomePage = () => {
               className="feature-card animate-fade-in-up"
               style={{ animationDelay: f.delay }}
             >
-              <div className={`feature-icon ${f.colorClass}`}>{f.icon}</div>
+              <div className={`feature-icon ${f.colorClass}`}><f.Icon size={24} /></div>
               <h3>{f.title}</h3>
               <p>{f.desc}</p>
             </div>
@@ -165,7 +168,7 @@ const HomePage = () => {
         {/* Bottom CTA */}
         <div style={{ textAlign: "center", marginTop: "3rem" }}>
           <Link to="/templates" className="btn-primary" id="features-cta-btn">
-            🎯 Choose Your Template
+            <IconTarget size={18} /> Choose Your Template
           </Link>
         </div>
       </section>
